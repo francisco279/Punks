@@ -1,3 +1,4 @@
+import { useWeb3React } from "@web3-react/core";
 import { useCallback, useEffect, useState } from "react";
 import usePlatziPunks                       from "../usePlatziPunks";
 
@@ -69,8 +70,10 @@ const getPunkData = async ({ platziPunks, tokenId }) => {
 };
 
 // Plural (Muestra todos los tokens de todas las cuentas)
-const usePlatziPunksData = () => {
+//Le pasamos un parámetro owner que puede ser bull
+const usePlatziPunksData = ({owner = null} = {}) => {
   const [punks, setPunks]     = useState([]); //constante para almacenar los punks en un aray 
+  const { library } = useWeb3React(); //Importamos la libraria de web3 
   const [loading, setLoading] = useState(true); //Para mostrar o no la carga 
   const platziPunks           = usePlatziPunks(); // Instanciando el contrato platzipunks
 
@@ -81,8 +84,20 @@ const usePlatziPunksData = () => {
 
       let tokenIds; //variable para almacenar el id de los tokens 
 
-      const totalSupply = await platziPunks.methods.totalSupply().call(); //Llamamos el total de tokens mintiados
-      tokenIds = new Array(Number(totalSupply)).fill().map((_, index) => index); //Creamos un  uevo array con los id de los tokens
+      if(!library.utils.isAddress(owner)) //En caso de que no sea el dueño del token 
+      {
+        const totalSupply = await platziPunks.methods.totalSupply().call(); //Llamamos el total de tokens mintiados
+        tokenIds          = new Array(Number(totalSupply)).fill().map((_, index) => index); //Creamos un  uevo array con los id de los tokens
+      }
+      else //En caso de que la direccion sea del dueño 
+      {
+        const balanceOf       = await platziPunks.methods.balanceOf(owner).call(); //Obtenemos la cantidad de tokens del dueño 
+        const tokenIdsofOwner = new Array(Number(balanceOf)).fill().map((_, index) => platziPunks.methods.tokenOfOwnerByIndex(owner, index).call());
+        console.log(tokenIdsofOwner);
+        tokenIds              = await Promise.all(tokenIdsofOwner);
+      }
+
+      
 
       //Creamos un array de promis a la funcion getPunkData mediante el id del token 
       const punksPromise = tokenIds.map((tokenId) =>
@@ -97,7 +112,7 @@ const usePlatziPunksData = () => {
       setPunks(punks);
       setLoading(false);
     }
-  }, [platziPunks]);
+  }, [platziPunks, owner, library?.utils]);
 
   useEffect(() => {
     update();
